@@ -1,14 +1,14 @@
-#wolfi-llama
+# wolfi-llama
 A container image based on Wolfi OS for running OSS LLMs via llama.cpp
 
-##Usage
+## Usage
 Download `.gguf` models from [huggingface](https://huggingface.co/) and place them in the `models` folder. Then run the image using a volume to share the models and a port redirect (for the server).
 
-###Example: Running Qwen3 VL with a web chat interface (personal assistant like ChatGPT)
+### Example: Running Qwen3 VL with a web chat interface (personal assistant like ChatGPT)
 
 Build the Image
 
-```
+```bash
 docker build . -t llama-test
 ```
 
