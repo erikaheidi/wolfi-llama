@@ -1,0 +1,14 @@
+services:
+  llama:
+    image: wolfi-llama
+    build:
+      context: .
+    restart: unless-stopped
+    ports:
+      - 8000:8000
+    command: --no-mmap --no-warmup -m /models/Qwen3-VL-2B-Instruct-Q8_0.gguf --mmproj /models/mmproj-F32.gguf --port 8000 --host 0.0.0.0 -n 512 --temp 0.7 --top-p 0.8 --top-k 20 --presence-penalty 1.5
+    volumes:
+      - ./models:/models:ro
+
+volumes:
+  models:

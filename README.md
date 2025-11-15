@@ -1,6 +1,8 @@
 # wolfi-llama
 A container image based on Wolfi OS for running OSS LLMs via llama.cpp
 
+Full tutorial available [here](https://eheidi.dev/posts/raspberry-llama/).
+
 ## Usage
 Download `.gguf` models from [huggingface](https://huggingface.co/) and place them in the `models` folder. Then run the image using a volume to share the models and a port redirect (for the server).
 
@@ -45,3 +47,14 @@ You should get a page like this:
 ![llama chatbot running local](resources/llama-server.png)
 
 You should be able to use the image features, just keep in mind that large images consume a lot of tokens (so it takes a longer time to process as part of the prompt), so consider shrinking / optimizing your pictures before you use them in the prompt.
+
+
+## Example 2: Using Docker Compose
+
+The included `docker-compose.yaml` file facilitates running a setup with pre-defined values. Check the file and modify the `command` line if you are using a different model or different parameters. Then, you can simply run:
+
+```shell
+docker compose up
+```
+
+And this will get the llama server up and running the same way as before.
