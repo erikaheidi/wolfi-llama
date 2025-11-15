@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# altim: Send image to local llama-server for ALT text generation
+# Usage: ./bin/altim /path/to/image.jpg
+#
+# Reads the image file, base64-encodes it, constructs a minimal OpenAI-compatible
+# /v1/chat/completions request JSON that includes the image as a data URI in the
+# user message, and POSTs it to http://localhost:8000/v1/chat/completions.
+#
+# Notes:
+# - This script targets a local llama-server instance exposed on port 8000.
+#   Change OPENAI_HOST env var to override.
+
+
+set -euo pipefail
+
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 /path/to/image"
+  exit 2
+fi
+
+IMG_PATH="$1"
+
+if [ ! -f "$IMG_PATH" ]; then
+  echo "Error: file not found: $IMG_PATH" >&2
+  exit 3
+fi
+
+# Server endpoint (override via OPENAI_HOST env if needed)
+OPENAI_HOST="${OPENAI_HOST:-http://localhost:8000}"
+ENDPOINT="$OPENAI_HOST/v1/chat/completions"
+
+# Detect MIME type (fallback to application/octet-stream)
+MIME_TYPE=$(file --brief --mime-type "$IMG_PATH" 2>/dev/null || echo "application/octet-stream")
+
+echo "Posting JSON (base64 data URI) to $ENDPOINT ..."
+
+# Base64-encode the image (single-line)
+if command -v base64 >/dev/null 2>&1; then
+  B64=$(base64 -w0 "$IMG_PATH" 2>/dev/null || base64 "$IMG_PATH" | tr -d '\n')
+else
+  echo "Error: base64 command not found" >&2
+  exit 4
+fi
+
+# Build JSON payload. Model name is left generic — change `model` if needed.
+read -r -d '' PAYLOAD <<EOF || true
+{
+  "model": "qw3n-vl",
+  "messages": [{
+        "role": "user", 
+        "content": [
+            {"type": "text","text": "Please describe the content of this image for visually impaired users."},
+            {"type": "image_url","image_url": {"url":"data:${MIME_TYPE};base64,${B64}"}}  
+    ]}
+  ]
+}
+EOF
+
+RESP=$(curl -sS -X POST "$ENDPOINT" \
+  -H "Content-Type: application/json" \
+  -d "$PAYLOAD") || {
+  echo "Error: request failed" >&2
+  exit 5
+}
+
+# If jq is available, extract assistant text from common reply shapes.
+if command -v jq >/dev/null 2>&1; then
+  ALT=$(printf '%s' "$RESP" | jq -r '
+    .choices[0].message.content // .choices[0].text // .choices[0].delta.content // empty
+  ')
+
+  if [ -n "$ALT" ]; then
+    printf '%s\n' "$ALT"
+  else
+    # Fallback: print raw JSON if we couldn't find the expected field
+    printf '%s\n' "$RESP"
+  fi
+else
+  # jq not available: print raw JSON response
+  printf '%s\n' "$RESP"
+fi
+
+
+# End of script
