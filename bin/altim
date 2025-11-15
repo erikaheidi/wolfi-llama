@@ -32,6 +32,28 @@ ENDPOINT="$OPENAI_HOST/v1/chat/completions"
 # Detect MIME type (fallback to application/octet-stream)
 MIME_TYPE=$(file --brief --mime-type "$IMG_PATH" 2>/dev/null || echo "application/octet-stream")
 
+# If ImageMagick `convert` is installed, create a temporary resized/compressed
+# copy (640x480, lowered quality) and use that for the upload to reduce
+# context size. Save the resized image in a temp dir and ensure cleanup on exit.
+if command -v convert >/dev/null 2>&1; then
+  TMPDIR=$(mktemp -d 2>/dev/null || mktemp -d -t altim)
+  TMP_IMG="$TMPDIR/resized.jpg"
+  # resize to fit within 640x480 and lower quality to reduce size
+  if convert "$IMG_PATH" -resize 640x480\> -strip -interlace Plane -quality 75 "$TMP_IMG" 2>/dev/null; then
+    echo "Using resized image for upload: $TMP_IMG" >&2
+    IMG_PATH="$TMP_IMG"
+    # re-detect MIME type for the temp file
+    MIME_TYPE=$(file --brief --mime-type "$IMG_PATH" 2>/dev/null || echo "$MIME_TYPE")
+    trap 'rm -rf "$TMPDIR"' EXIT
+  else
+    # conversion failed — clean up and continue with original image
+    rm -rf "$TMPDIR" 2>/dev/null || true
+    echo "Warning: image resize failed, proceeding with original image" >&2
+  fi
+else
+  echo "ImageMagick 'convert' not found; uploading original image." >&2
+fi
+
 echo "Posting JSON (base64 data URI) to $ENDPOINT ..."
 
 # Base64-encode the image (single-line)
